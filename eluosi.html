@@ -1,0 +1,378 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>JS版本-俄罗斯方块</title>
+<style>
+*{ margin:0; padding:0;}
+li{ list-style:none;}
+#container{ width:430px; margin:20px auto; }
+#main{ width:300px; height:600px; border:10px green solid; position:relative; float:left;}
+#grid{ width:100%; height:100%; background:black;}
+#grid li{ width:30px; height:30px; background:blue; opacity:0; float:left; box-shadow:2px 2px 1px rgba(255,255,255,0.7) inset,-2px -2px 1px black inset;}
+#block{}
+#block div{ position:absolute; left:0; top:0; width:30px; height:30px; box-shadow:2px 2px 1px rgba(255,255,255,0.7) inset,-2px -2px 1px black inset;}
+
+#play{ position:absolute; left:50%; top:50%; width:100px; height:30px; border:1px #000000 solid; line-height:30px; text-align:center; margin:-15px 0 0 -50px;}
+#info{ width:100px; height:600px; background:black; float:left; border:10px green solid; border-left:none; color:white;}
+#info .next{ height:150px;}
+#info .nextShape{ position:relative; left:10%; top:20px;}
+#info .nextShape div{ width:15px; height:15px; position:absolute; box-shadow:2px 2px 1px rgba(255,255,255,0.7) inset,-2px -2px 1px black inset;}
+#info .handle{ height:320px;}
+#info .handle li{ height:60px; line-height:60px; text-align:center;}
+#info .score{}
+#info .score p{ text-align:center; line-height:60px;}
+</style>
+<script src="jquery-1.9.1.min.js"></script>
+</head>
+
+<body>
+<div id="container">
+    <div id="main">
+        <ul id="grid">
+            
+        </ul>
+        <div id="block"></div>
+        <input type="button" value="Game Play" id="play">
+    </div>
+    <div id="info">
+    	<div class="next">
+        	<h2>next</h2>
+            <div class="nextShape"></div>
+        </div>
+        <div class="handle">
+        	<h2>handle</h2>
+            <ul>
+            	<li>↑&nbsp;&nbsp;&nbsp;turn</li>
+                <li>→&nbsp;&nbsp;&nbsp;right</li>
+                <li>←&nbsp;&nbsp;&nbsp;left</li>
+                <li>↓&nbsp;&nbsp;&nbsp;down</li>
+            </ul>
+        </div>
+        <div class="score">
+        	<h2>score</h2>
+            <p>0</p>
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+(function($){
+	
+	var Game = {
+		rows : 20,
+		cols : 10,
+		size : 30,
+		timer : null,
+		timer2 : null,
+		shape : [
+			{ 
+				type : [
+					[0,0,1],
+					[1,1,1],
+					[0,0,0]
+				], 
+				color : '#00ff00' 
+			},
+			{ 
+				type : [
+					[1,0,0],
+					[1,1,1],
+					[0,0,0]
+				], 
+				color : '#ff7f00' 
+			},
+			{ 
+				type : [
+					[0,0,0],
+					[0,1,1],
+					[1,1,0],
+					[0,0,0]
+				], 
+				color : '#edff00' 
+			},
+			{ 
+				type : [
+					[0,0,0],
+					[1,1,0],
+					[0,1,1],
+					[0,0,0]
+				], 
+				color : '#0024ff' 
+			},
+			{ 
+				type : [
+					[0,1,0],
+					[1,1,1],
+					[0,0,0]
+				], 
+				color : '#ffb600' 
+			},
+			{ 
+				type : [
+					[1,1],
+					[1,1]
+				], 
+				color : '#ff00ff' 
+			},
+			{ 
+				type : [
+					[0,0,0,0],
+					[1,1,1,1],
+					[0,0,0,0]
+				], 
+				color : '#ff0000' 
+			}
+		],
+		init : function(){
+			this.elements();
+			this.createGrid();
+			this.bind();
+		},
+		elements : function(){
+			this.$grid = $('#grid');
+			this.$play = $('#play');
+			this.$block = $('#block');
+			this.$nextShape = $('#info').find('.nextShape');
+			this.$score = $('#info').find('.score p');
+		},
+		createGrid : function(){
+			for(var i=0;i<this.rows*this.cols;i++){
+				var li = $('<li>');
+				li.data('flag','on');
+				this.$grid.append(li);
+			}
+		},
+		bind : function(){
+			this.$play.on('click',$.proxy(this.play,this));
+			$(document).on('keydown',$.proxy(this.dir,this));
+		},
+		play : function(){
+			this.$play.hide();
+			this.showShape();
+			this.playing();
+		},
+		showShape : function(){
+			this.initShape();
+			this.createShape();
+			this.nextShape();
+		},
+		initShape : function(){
+			this.nowShape = this.nextNowShape || this.randomShape();
+			this.typeShape = this.nowShape.type;
+			this.colorShape = this.nowShape.color;
+			this.xShape = 3;
+			this.yShape = 0;
+		},
+		createShape : function(){
+			this.$block.empty();
+			for(var i=0;i<this.typeShape.length;i++){
+				for(var j=0;j<this.typeShape[i].length;j++){
+					if(this.typeShape[i][j] == 1){
+						var $div = $('<div>');
+						$div.css('background-color',this.colorShape);
+						$div.css('left',(j+this.xShape)*this.size);
+						$div.css('top',(i+this.yShape)*this.size);
+						$div.data('x',j+this.xShape);
+						$div.data('y',i+this.yShape);
+						this.$block.append($div);
+					}
+				}
+			}
+		},
+		nextShape : function(){
+			this.nextNowShape = this.randomShape();
+			this.nextTypeShape = this.nextNowShape.type;
+			this.nextColorShape = this.nextNowShape.color;
+			this.$nextShape.empty();
+			for(var i=0;i<this.nextTypeShape.length;i++){
+				for(var j=0;j<this.nextTypeShape[i].length;j++){
+					if(this.nextTypeShape[i][j] == 1){
+						var $div = $('<div>');
+						$div.css('background-color',this.nextColorShape);
+						$div.css('left',j*this.size/2);
+						$div.css('top',i*this.size/2);
+						this.$nextShape.append($div);
+					}
+				}
+			}
+		},
+		randomShape : function(){
+			return this.shape[Math.floor(Math.random()*this.shape.length)];
+		},
+		dir : function(ev){
+			if(!this.typeShape){
+				return;
+			}
+			switch(ev.keyCode){
+				case 37:
+					//alert(1);
+					this.moveShape(-1);
+				break;
+				case 38:
+					//alert(2);
+					this.typeShape = this.changeShape();
+					this.createShape();
+				break;
+				case 39:
+					//alert(3);
+					this.moveShape(1);
+				break;
+				case 40:
+					//alert(4);
+					this.moveShapeDown(1);
+				break;
+			}
+		},
+		changeShape : function(){
+			var result = [];
+			for(var i=0;i<this.typeShape.length;i++){
+				for(var j=0;j<this.typeShape[i].length;j++){
+					if(i==0){
+						result[j] = [];
+					}
+					result[j][this.typeShape.length-1-i] = this.typeShape[i][j];
+				}
+			}
+			if(this.isNoChangeShape(result)){
+				return this.typeShape;
+			}
+			else{
+				return result;
+			}
+		},
+		isNoChangeShape : function(typeShape){
+			var $li = this.$grid.find('li');
+			for(var i=0;i<typeShape.length;i++){
+				for(var j=0;j<typeShape[i].length;j++){
+					if(typeShape[i][j] == 1){
+						if(j+this.xShape <= -1 || j+this.xShape >= this.cols || i+this.yShape >= this.rows){
+							return true;
+						}
+						if( $li.eq((i+this.yShape)*this.cols + (j+this.xShape)).data('flag') == 'off' ){
+							return true;
+						}
+					}
+				}
+			}
+			return false;
+		},
+		playing : function(){
+			this.timer = setInterval($.proxy(function(){
+				this.moveShapeDown(1);
+			},this),500);
+		},
+		moveShape : function(num){
+			var $div = this.$block.find('div');
+			var This = this;
+			if(this.isObstacle($div,num)){
+				return;
+			}
+			this.xShape = this.xShape + num;
+			$div.each(function(i,elem){
+				$(elem).css('left' , $(elem).position().left + num * This.size);
+				$(elem).data('x',$(elem).data('x')+num);
+			});	
+		},
+		moveShapeDown : function(num){
+			var $div = this.$block.find('div');
+			var This = this;
+			if(this.isObstacleDown($div)){
+				clearTimeout(this.timer2);
+				this.timer2 = setTimeout($.proxy(function(){
+					this.fixShape();
+				},this),200);
+				return;
+			}
+			this.yShape = this.yShape + num;
+			$div.each(function(i,elem){
+				$(elem).css('top' , $(elem).position().top + num * This.size);
+				$(elem).data('y',$(elem).data('y')+num);
+			});
+		},
+		isObstacle : function($div,num){
+			var onoff = false;
+			var This = this;
+			var $li = this.$grid.find('li');
+			$div.each(function(i,elem){
+				if( ($(elem).position().left == 0 && num == -1) || ($(elem).position().left == 270 && num == 1) ){
+					onoff = true;
+				}
+				if( $li.eq($(elem).data('y')*This.cols + $(elem).data('x') + num).data('flag') != 'on'){
+					onoff = true;
+				}
+			});
+			return onoff;	
+		},
+		isObstacleDown : function($div){
+			var onoff = false;
+			var This = this;
+			var $li = this.$grid.find('li');
+			$div.each(function(i,elem){
+				if( $(elem).position().top == 570 ){
+					onoff = true;
+				}
+				if( $li.eq(($(elem).data('y')+1)*This.cols + $(elem).data('x')).data('flag') != 'on'){
+					onoff = true;
+				}
+			});
+			return onoff;	
+		},
+		fixShape : function(){
+			var $div = this.$block.find('div');
+			var $li = this.$grid.find('li');
+			var This = this;
+			$div.each(function(i,elem){
+				$li.eq( $(elem).data('y')*This.cols + $(elem).data('x') ).css('opacity',1).data('flag','off');
+			});
+			this.gameOver();
+			this.showShape();
+			this.deleteRow();
+		},
+		deleteRow : function(){
+			var $li = this.$grid.find('li');
+			var getPos = 0;
+			var count = 0;
+			for(var i=0;i<this.rows;i++){
+				var bRow = true;
+				for(var j=0;j<this.cols;j++){
+					if( $li.eq(i*this.cols+j).data('flag')=='on' ){
+						bRow = false;
+					}
+				}
+				if(bRow){
+					getPos = i*this.cols;
+					count++;
+					for(var j=0;j<this.cols;j++){
+						$li.eq(i*this.cols+j).css('opacity',0).data('flag','on');
+					}
+				}
+			}
+			for(var i=getPos;i>0;i--){
+				if($li.eq(i).data('flag') == 'off'){
+					$li.eq(i).css('opacity',0).data('flag','on');
+					$li.eq(i+count*this.cols).css('opacity',1).data('flag','off');
+				}
+			}
+			this.getScore(count);
+		},
+		getScore : function(count){
+			this.$score.html(parseInt(this.$score.html()) + (10+count)*count);
+		},
+		gameOver : function(){
+			if(this.yShape == 0){
+				clearInterval(this.timer);
+				alert('Game Over');
+			}
+		}
+	};
+	
+	Game.init();
+	
+})(jQuery);
+
+</script>
+</body>
+</html>
